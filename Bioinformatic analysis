@@ -1,0 +1,50 @@
+library(openxlsx)
+library(tidyverse)
+library(gtsummary)
+Pat_info <- read.xlsx("Patient_info.xlsx", colNames = TRUE)
+Pat_info <- Pat_info %>%
+  mutate(
+    Group = factor(Type),
+    Gender = factor(Gender),
+    Classification = factor(Classification),
+    SMN2.Copy.Number = factor(SMN2.Copy.Number) 
+  ) %>%
+  select(
+    Group, Age, Gender, Classification, SMN2.Copy.Number
+  )
+continuous_vars <- c("Age", "SMN2.Copy.Number")
+categorical_vars <- c("Gender", "Classification")
+test_results <- list()
+for (var in continuous_vars) {
+  Pat_info[[var]] <- as.numeric(Pat_info[[var]])
+  test <- wilcox.test(Pat_info[[var]] ~ Pat_info$Group, data = Pat_info)
+  test_results[[var]] <- test
+  cat(paste("变量:", var, "\n"))
+  cat(paste("  P 值:", sprintf("%.4f", test$p.value), "\n"))
+  print(test)
+  cat("\n")
+}
+for (var in categorical_vars) {
+  contingency_table <- table(Pat_info[[var]], Pat_info$Group)
+  chi_sq_test <- tryCatch({
+    chisq.test(contingency_table)
+  }, warning = function(w) {
+    if (grepl("Chi-squared approximation may be incorrect", w$message) || any(chisq.test(contingency_table)$expected < 5)) {
+      cat(paste("  注意:", var, "的卡方检验期望频数过低，自动使用 Fisher 精确检验。\n"))
+      return(fisher.test(contingency_table))
+    } else {
+      return(chisq.test(contingency_table))
+    }
+  })
+  test_results[[var]] <- chi_sq_test
+  cat(paste("变量:", var, "\n"))
+  if ("Fisher's Exact Test" %in% chi_sq_test$method) {
+      cat(paste("  检验类型: Fisher's Exact Test\n"))
+      cat(paste("  P 值:", sprintf("%.4f", chi_sq_test$p.value), "\n"))
+  } else {
+      cat(paste("  检验类型: Pearson's Chi-squared Test\n"))
+      cat(paste("  P 值:", sprintf("%.4f", chi_sq_test$p.value), "\n"))
+  }
+  print(chi_sq_test)
+  cat("\n")
+}
