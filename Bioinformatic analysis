@@ -208,10 +208,10 @@ ggplot(pca_df, aes(x = PC1, y = PC2, color = Treatment_Group, shape = Time_Point
   theme_bw() +
   theme(
     plot.title = element_text(hjust = 0.5, size = 14, face = "bold", family = "Times New Roman"),
-    legend.title = element_text(size = 12, family = "Times New Roman"),
-    legend.text = element_text(size = 10, family = "Times New Roman"),
+    legend.title = element_text(size = 14, family = "Times New Roman"),
+    legend.text = element_text(size = 12, family = "Times New Roman"),
     panel.grid.major = element_line(linetype = "dotted", color = "lightgrey"), 
     panel.grid.minor = element_blank(),
-    axis.text = element_text(size = 14, family = "Times New Roman"),  # 坐标字体
+    axis.text = element_text(size = 12, family = "Times New Roman"),  # 坐标字体
     axis.title = element_text(size = 14, face = "bold", family = "Times New Roman")  # 轴标题字体
   )
