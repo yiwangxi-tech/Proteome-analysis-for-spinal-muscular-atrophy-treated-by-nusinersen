@@ -163,3 +163,53 @@ plot_score_trajectories_final <- function(data) {
       legend.position = "bottom"
     )
 }
+# 蛋白质组PCA降维分析
+pro <- read.xlsx("蛋白定量列表.xlsx", colNames = TRUE)
+row.names(pro) <- pro[, 1]
+pro_data <- pro %>% select(-1)
+all_samples <- colnames(pro_data)
+# log2转化+数据处理
+data_matrix_log2 <- pro_data %>% 
+  mutate(across(everything(), as.numeric)) %>% 
+  mutate(across(everything(), log2)) %>%
+  mutate(across(everything(), ~replace_na(.x, 0))) %>% 
+  as.matrix()
+sample_id <- as.numeric(gsub("[AB]", "", all_samples))
+sample_metadata <- data.frame(
+  Sample = all_samples,
+  ID = sample_id,
+  Treatment_Group = ifelse(sample_id %in% c(5, 6, 9), "Respond", "Non-respond"),
+  Time_Point = ifelse(grepl("A$", all_samples), "Pre-Treatment", "Post-Treatment")
+) %>%
+  mutate(
+    Treatment_Group = factor(Treatment_Group),
+    Time_Point = factor(Time_Point, levels = c("Pre-Treatment", "Post-Treatment"))
+  )
+pca_result <- prcomp(t(data_matrix_log2), center = TRUE, scale. = TRUE)
+pca_df <- data.frame(
+     PC1 = pca_result$x[, 1],
+     PC2 = pca_result$x[, 2],
+     Sample = rownames(pca_result$x) 
+) %>%
+  left_join(sample_metadata, by = "Sample")
+var_explained <- summary(pca_result)$importance[2, 1:2] * 100
+print(var_explained)
+ggplot(pca_df, aes(x = PC1, y = PC2, color = Treatment_Group, shape = Time_Point)) +
+      geom_point(size = 3, alpha = 0.7) +    
+      stat_ellipse(aes(group = Treatment_Group, color = Treatment_Group), geom = "polygon", alpha = 0.1, level = 0.95, show.legend = FALSE) +
+      geom_line(aes(group = ID, color = Treatment_Group), alpha = 0.4) +
+      labs(
+          title = "Proteome PCA",
+          x = paste0("PC1 (", round(var_explained[1], 1), "%)"),
+          y = paste0("PC2 (", round(var_explained[2], 1), "%)"),
+          color = "Treatment response",
+          shape = "Pre- and Post-treatment"
+      ) +
+      theme_bw() +
+      theme(
+          plot.title = element_text(hjust = 0.5, size = 14, face = "bold"),
+          legend.title = element_text(size = 12),
+          legend.text = element_text(size = 10),
+          panel.grid.major = element_line(linetype = "dotted", color = "lightgrey"), 
+          panel.grid.minor = element_blank()
+     )
