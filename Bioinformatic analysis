@@ -195,7 +195,14 @@ pca_df <- data.frame(
 var_explained <- summary(pca_result)$importance[2, 1:2] * 100
 print(var_explained)
 ggplot(pca_df, aes(x = PC1, y = PC2, color = Treatment_Group, shape = Time_Point)) +
-  geom_point(size = 3, alpha = 0.7) +    
+  geom_text_repel(
+    aes(label = ID, color = Treatment_Group), 
+    size = 3,                                
+    segment.alpha = 0.5,                     
+    family = "Times New Roman",              
+    show.legend = FALSE                      
+  ) +
+  geom_point(size = 3, alpha = 0.7) +
   stat_ellipse(aes(group = Treatment_Group, color = Treatment_Group), geom = "polygon", alpha = 0.1, level = 0.95, show.legend = FALSE) +
   geom_line(aes(group = ID, color = Treatment_Group), alpha = 0.4) +
   labs(
@@ -210,8 +217,8 @@ ggplot(pca_df, aes(x = PC1, y = PC2, color = Treatment_Group, shape = Time_Point
     plot.title = element_text(hjust = 0.5, size = 14, face = "bold", family = "Times New Roman"),
     legend.title = element_text(size = 14, family = "Times New Roman"),
     legend.text = element_text(size = 12, family = "Times New Roman"),
-    panel.grid.major = element_line(linetype = "dotted", color = "lightgrey"), 
+    panel.grid.major = element_line(linetype = "dotted", color = "lightgrey"),
     panel.grid.minor = element_blank(),
-    axis.text = element_text(size = 12, family = "Times New Roman"),  # 坐标字体
-    axis.title = element_text(size = 14, face = "bold", family = "Times New Roman")  # 轴标题字体
+    axis.text = element_text(size = 12, family = "Times New Roman"), 
+    axis.title = element_text(size = 14, face = "bold", family = "Times New Roman") 
   )
