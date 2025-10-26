@@ -1,6 +1,7 @@
 library(openxlsx)
 library(tidyverse)
 library(gtsummary)
+# 连续变量及分类变量的Wlicoxon秩和检验及Fisher精确检验
 Pat_info <- read.xlsx("Patient_info.xlsx", colNames = TRUE)
 Pat_info <- Pat_info %>%
   mutate(
@@ -12,9 +13,11 @@ Pat_info <- Pat_info %>%
   select(
     Group, Age, Gender, Classification, SMN2.Copy.Number
   )
+
 continuous_vars <- c("Age", "SMN2.Copy.Number")
 categorical_vars <- c("Gender", "Classification")
 test_results <- list()
+
 for (var in continuous_vars) {
   Pat_info[[var]] <- as.numeric(Pat_info[[var]])
   test <- wilcox.test(Pat_info[[var]] ~ Pat_info$Group, data = Pat_info)
@@ -24,6 +27,7 @@ for (var in continuous_vars) {
   print(test)
   cat("\n")
 }
+
 for (var in categorical_vars) {
   contingency_table <- table(Pat_info[[var]], Pat_info$Group)
   chi_sq_test <- tryCatch({
@@ -47,4 +51,115 @@ for (var in categorical_vars) {
   }
   print(chi_sq_test)
   cat("\n")
+}
+# 评分变化的Wlicoxon秩和检验
+score_vars <- c("HFMSE_Pre", "RULM_Pre", "HFMSE_1y", "RULM_1y", 
+                "HFMSE_2y", "RULM_2y", "HFMSE_2.5y", "RULM_2.5y")
+Pat_info <- Pat_info %>%
+  mutate(
+    Group = factor(Type), 
+    across(all_of(score_vars), as.numeric) 
+  ) %>%
+  mutate(
+    # HFMSE 变化量
+    HFMSE_Delta_1y   = HFMSE_1y - HFMSE_Pre,
+    HFMSE_Delta_2y   = HFMSE_2y - HFMSE_Pre,
+    HFMSE_Delta_2.5y = HFMSE_2.5y - HFMSE_Pre,
+    
+    # RULM 变化量
+    RULM_Delta_1y   = RULM_1y - RULM_Pre,
+    RULM_Delta_2y   = RULM_2y - RULM_Pre,
+    RULM_Delta_2.5y = RULM_2.5y - RULM_Pre
+  )
+baseline_vars <- c("HFMSE_Pre", "RULM_Pre")
+delta_vars <- c(
+  "HFMSE_Delta_1y", "HFMSE_Delta_2y", "HFMSE_Delta_2.5y",
+  "RULM_Delta_1y", "RULM_Delta_2y", "RULM_Delta_2.5y"
+)
+groups <- c("Respond", "Non-respond")
+all_continuous_vars <- c(baseline_vars, delta_vars)
+for (var in all_continuous_vars) {
+  if (var %in% baseline_vars) {
+      cat(paste("【指标 (基线):", var, "】\n"))
+  } else {
+      cat(paste("【指标 (变化量):", var, "】\n"))
+  }
+  for (group in groups) {
+    data_subset <- Pat_info[[var]][Pat_info$Type == group]
+    quantiles <- quantile(data_subset, na.rm = TRUE)
+    cat(paste("  分组:", group, "\n"))
+    print(quantiles)
+    median_val <- quantiles["50%"]
+    iqr_val <- paste0("(", quantiles["25%"], ", ", quantiles["75%"], ")")
+    cat(paste("  **中位数 (IQR):**", median_val, iqr_val, "\n\n"))
+  }
+  test_result <- wilcox.test(Pat_info[[var]] ~ Pat_info$Group, data = Pat_info, exact = FALSE)
+  cat("--- 组间差异检验 (Wilcoxon 秩和检验) ---\n")
+  cat(paste("  P 值:", sprintf("%.4f", test_result$p.value), "\n"))
+  print(test_result)
+  cat("========================================================================\n\n")
+}
+# 不同时间点箱线图绘制
+time_points <- c("Pre", "1y", "2y", "2.5y")
+df_long <- Pat_info %>%
+  select(
+    Patient.ID, Group, 
+    HFMSE_Pre, RULM_Pre, HFMSE_1y, RULM_1y, HFMSE_2y, RULM_2y, HFMSE_2.5y, RULM_2.5y
+  ) %>%
+  pivot_longer(
+    cols = -c(Patient.ID, Group),
+    names_to = "Time_Score_Combined",
+    values_to = "Score_Value"
+  ) %>%
+  separate(
+    col = Time_Score_Combined,
+    into = c("Score_Type", "Time_Point"),
+    sep = "_",
+    extra = "merge"
+  ) %>%
+  mutate(
+    Time_Point = factor(Time_Point, levels = time_points)
+  )
+plot_score_trajectories_final <- function(data) {
+  score_labels <- c(
+    "HFMSE" = "HFMSE Score", 
+    "RULM" = "RULM Score"
+  )
+  ggplot(data, aes(x = Time_Point, y = Score_Value, fill = Group)) +
+    geom_boxplot(
+      outlier.shape = NA,
+      alpha = 0.6,
+      width = 0.7,
+      position = position_dodge(0.8)
+    ) +
+    geom_point(
+      aes(color = Group),
+      position = position_jitterdodge(jitter.width = 0.1, dodge.width = 0.8),
+      size = 2,
+      alpha = 0.7
+    ) +
+    facet_wrap(~ Score_Type, 
+               scales = "free_y", 
+               ncol = 2,
+               labeller = as_labeller(score_labels), 
+               strip.position = "left") + 
+    labs(
+      title = "评分随时间的变化和组间比较"
+    ) +
+    scale_fill_manual(values = c("Respond" = "#F48892", "Non-respond" = "#91CAE8")) +
+    scale_color_manual(values = c("Respond" = "#F48892", "Non-respond" = "#91CAE8")) +
+    theme_bw(base_size = 14, base_family = "Times New Roman") +
+    theme(
+      panel.grid.major = element_blank(),
+      panel.grid.minor = element_blank(),
+      panel.border = element_blank(),
+      axis.line = element_line(color = "black"), 
+      axis.title = element_text(face = "bold", family = "Times New Roman"),
+      axis.text = element_text(family = "Times New Roman"),
+      strip.background = element_blank(), 
+      strip.placement = "outside", 
+      strip.text = element_text(face = "bold", hjust = 0.5, family = "Times New Roman"),
+      plot.title = element_text(hjust = 0.5, face = "bold", family = "Times New Roman"),
+      legend.position = "bottom"
+    )
 }
