@@ -228,3 +228,149 @@ ggplot(pca_df, aes(x = PC1, y = PC2, color = Treatment_Group, shape = Time_Point
     axis.text = element_text(size = 12, family = "Times New Roman"), 
     axis.title = element_text(size = 14, face = "bold", family = "Times New Roman") 
   )
+
+#蛋白质组差异分析(10A/B样本)
+library(openxlsx)
+library(limma)
+library(ggplot2)
+library(dplyr)
+library(pheatmap)
+
+Pro <- read.xlsx("蛋白定量列表.xlsx", colNames = TRUE)
+protein_matrix <- as.matrix(Pro[, -1])
+rownames(protein_matrix) <- Pro$Protein
+log2_data <- log2(protein_matrix)
+
+respond_before <- c('5A', '6A', '9A')
+respond_after <- c('5B', '6B', '9B')
+non_respond_before <- c('1A', '2A', '3A', '4A', '7A', '8A', '10A')
+non_respond_after <- c('1B', '2B', '3B', '4B', '7B', '8B', '10B')
+
+output_dir <- "D:/博士/参考文献/蛋白质组学/许婷婷-协和-20个脑脊液ddia-241029/R_output1013"
+dir.create(output_dir, recursive = TRUE, showWarnings = FALSE)
+
+perform_de_analysis <- function() {
+  results_list <- list()
+  
+  # Analysis 1: Respond vs Non-respond (Before treatment)
+  before_samples <- c(respond_before, non_respond_before)
+  before_data <- log2_data[, before_samples]
+  before_group <- factor(c(rep("Respond", 3), rep("Non_respond", 7)))
+  before_design <- model.matrix(~0 + before_group)
+  colnames(before_design) <- c("Non_respond", "Respond")
+  before_fit <- lmFit(before_data, before_design)
+  before_contrast <- makeContrasts(Respond - Non_respond, levels = before_design)
+  before_fit2 <- contrasts.fit(before_fit, before_contrast)
+  before_fit2 <- eBayes(before_fit2)
+  results_list$before_results <- topTable(before_fit2, n = Inf)
+  results_list$before_results$Protein <- rownames(results_list$before_results)
+  
+  # Analysis 2: Respond vs Non-respond (After treatment)
+  after_samples <- c(respond_after, non_respond_after)
+  after_data <- log2_data[, after_samples]
+  after_group <- factor(c(rep("Respond", 3), rep("Non_respond", 7)))
+  after_design <- model.matrix(~0 + after_group)
+  colnames(after_design) <- c("Non_respond", "Respond")
+  after_fit <- lmFit(after_data, after_design)
+  after_contrast <- makeContrasts(Respond - Non_respond, levels = after_design)
+  after_fit2 <- contrasts.fit(after_fit, after_contrast)
+  after_fit2 <- eBayes(after_fit2)
+  results_list$after_results <- topTable(after_fit2, n = Inf)
+  results_list$after_results$Protein <- rownames(results_list$after_results)
+  
+  # Analysis 3: Respond group (Before vs After treatment)
+  respond_samples <- c(respond_before, respond_after)
+  respond_data <- log2_data[, respond_samples]
+  respond_time_group <- factor(c(rep("Before", 3), rep("After", 3)))
+  respond_design <- model.matrix(~0 + respond_time_group)
+  colnames(respond_design) <- c("After", "Before")
+  respond_fit <- lmFit(respond_data, respond_design)
+  respond_contrast <- makeContrasts(After - Before, levels = respond_design)
+  respond_fit2 <- contrasts.fit(respond_fit, respond_contrast)
+  respond_fit2 <- eBayes(respond_fit2)
+  results_list$respond_ba_results <- topTable(respond_fit2, n = Inf)
+  results_list$respond_ba_results$Protein <- rownames(results_list$respond_ba_results)
+  
+  # Analysis 4: Non-respond group (Before vs After treatment)
+  nonrespond_samples <- c(non_respond_before, non_respond_after)
+  nonrespond_data <- log2_data[, nonrespond_samples]
+  nonrespond_time_group <- factor(c(rep("Before", 7), rep("After", 7)))
+  nonrespond_design <- model.matrix(~0 + nonrespond_time_group)
+  colnames(nonrespond_design) <- c("After", "Before")
+  nonrespond_fit <- lmFit(nonrespond_data, nonrespond_design)
+  nonrespond_contrast <- makeContrasts(After - Before, levels = nonrespond_design)
+  nonrespond_fit2 <- contrasts.fit(nonrespond_fit, nonrespond_contrast)
+  nonrespond_fit2 <- eBayes(nonrespond_fit2)
+  results_list$nonrespond_ba_results <- topTable(nonrespond_fit2, n = Inf)
+  results_list$nonrespond_ba_results$Protein <- rownames(results_list$nonrespond_ba_results)
+  
+  return(results_list)
+}
+
+all_results <- perform_de_analysis()
+
+create_volcano_plot <- function(results, title, filename) {
+    results$significance <- "Not Significant"
+    results$significance[results$P.Value < 0.05 & abs(results$logFC) > 0.5] <- "Significant"
+    results$significance[results$adj.P.Val < 0.05 & abs(results$logFC) > 0.5] <- "Highly Significant"
+    
+    results$logP <- -log10(results$P.Value)
+    
+    colors <- c("#2472A3", "#7EA4D1", "#82AD7F", "#F8F2A4", "#DCA96A", "#C1565E", "#B02425")
+    
+    p <- ggplot(results, aes(x = logFC, y = logP)) +
+        geom_point(
+            data = subset(results, significance == "Not Significant"),
+            aes(color = logFC, size = logP),
+            alpha = 0.6,
+            shape = 16
+        ) +
+        geom_point(
+            data = subset(results, significance != "Not Significant"),
+            aes(color = logFC, size = logP),
+            shape = 16
+        ) +
+        scale_color_gradientn(colors = colors, name = expression(log[2]*FoldChange)) +
+        scale_size_continuous(range = c(1, 4), name = expression(-log[10](P[value]))) +
+        geom_vline(xintercept = c(-0.5, 0.5), linetype = "dashed", color = "black") +
+        geom_hline(yintercept = -log10(0.05), linetype = "dashed", color = "black") +
+        labs(
+            title = title,
+            x = expression(log[2]*FoldChange),
+            y = expression(-log[10](P[value]))
+        ) +
+        theme_minimal() +
+        theme(
+            plot.title = element_text(hjust = 0.5, face = "bold", size = 14),
+            legend.position = "right",
+            panel.grid.major = element_blank(),
+            panel.grid.minor = element_blank(),
+            panel.border = element_rect(color = "black", fill = NA, linewidth = 1),
+            axis.title = element_text(size = 14),   
+            axis.text = element_text(size = 12)     
+        )
+
+    top_proteins <- head(results[results$P.Value < 0.05 & abs(results$logFC) > 0.5, ], 5)
+    if (nrow(top_proteins) > 0) {
+        p <- p + ggrepel::geom_text_repel(
+            data = top_proteins,
+            aes(label = Protein),
+            size = 3,
+            box.padding = 0.3,
+            max.overlaps = 10
+        )
+    }
+    
+    ggsave(filename, p, width = 10, height = 8, dpi = 300)
+    print(paste("Volcano plot saved:", filename))
+    return(p)
+}
+
+create_volcano_plot(all_results$before_results, "Respond vs Non-respond (Before Treatment)", 
+                   file.path(output_dir, "volcano_before_respond_vs_nonrespond.png"))
+create_volcano_plot(all_results$after_results, "Respond vs Non-respond (After Treatment)", 
+                   file.path(output_dir, "volcano_after_respond_vs_nonrespond.png"))
+create_volcano_plot(all_results$respond_ba_results, "Respond Group: After vs Before Treatment", 
+                   file.path(output_dir, "volcano_respond_after_vs_before.png"))
+create_volcano_plot(all_results$nonrespond_ba_results, "Non-respond Group: After vs Before Treatment", 
+                   file.path(output_dir, "volcano_nonrespond_after_vs_before.png"))
