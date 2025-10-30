@@ -434,7 +434,7 @@ perform_de_analysis <- function() {
      after_contrast_1 <- makeContrasts(SMA1 - SMA2, levels = after_design_1)
      after_fit2_1 <- contrasts.fit(after_fit_1, after_contrast_1)
      after_fit2_1 <- eBayes(after_fit2_1)
-     results_list$after_results_1 <- topTable(after_fit2_14, n = Inf)
+     results_list$after_results_1 <- topTable(after_fit2_1, n = Inf)
      results_list$after_results$Protein_1 <- rownames(results_list$after_results_1)
      
      # Analysis 5: SMA-1 vs SMA-3 (After treatment)
