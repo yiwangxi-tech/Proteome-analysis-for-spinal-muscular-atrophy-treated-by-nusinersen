@@ -634,3 +634,13 @@ pheatmap(prot_corr_ineff,
          main = paste("Protein Network Correlations: Non-respond Group (", n_top_proteins, " proteins)"),
          fontsize = 14,
          border_color = NA)
+
+pheatmap(corr_difference,
+         color = colorRampPalette(c("#457B9D", "white", "#E63946"))(100),
+         breaks = seq(-2, 2, length.out = 101),
+         clustering_method = "average",
+         show_rownames = FALSE,
+         show_colnames = FALSE,
+         main = "Network Correlation Differences (Respond - Non-respond)",
+         fontsize = 14,
+         border_color = NA)
