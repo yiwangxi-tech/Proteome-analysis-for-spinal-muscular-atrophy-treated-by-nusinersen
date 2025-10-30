@@ -468,7 +468,7 @@ perform_de_analysis <- function() {
      sma1_data <- log2_data[, sma1_samples]
      sma1_group <- factor(c(rep("Before", 1), rep("After", 1)))
      sma1_design <- model.matrix(~0 + sma1_group)
-     colnames(sma1_design) <- c("Before", " After")
+     colnames(sma1_design) <- c("Before", "After")
      sma1_fit <- lmFit(sma1_data, sma1_design)
      sma1_contrast <- makeContrasts(After - Before, levels = sma1_design)
      sma1_fit2 <- contrasts.fit(sma1_fit, sma1_contrast)
@@ -481,7 +481,7 @@ perform_de_analysis <- function() {
      sma2_data <- log2_data[, sma2_samples]
      sma2_group <- factor(c(rep("Before", 3), rep("After", 3)))
      sma2_design <- model.matrix(~0 + sma2_group)
-     colnames(before_design) <- c("Before", " After")
+     colnames(before_design) <- c("Before", "After")
      sma2_fit <- lmFit(sma2_data, sma2_design)
      sma2_contrast <- makeContrasts(After - Before, levels = sma2_design)
      sma2_fit2 <- contrasts.fit(sma2_fit, sma2_contrast)
@@ -494,7 +494,7 @@ perform_de_analysis <- function() {
      sma3_data <- log2_data[, sma3_samples]
      sma3_group <- factor(c(rep("Before", 6), rep("After", 6)))
      sma3_design <- model.matrix(~0 + sma3_group)
-     colnames(sma3_design) <- c("Before", " After")
+     colnames(sma3_design) <- c("Before", "After")
      sma3_fit <- lmFit(sma3_data, sma3_design)
      sma3_contrast <- makeContrasts(After - Before, levels = sma3_design)
      sma3_fit2 <- contrasts.fit(sma3_fit, sma3_contrast)
