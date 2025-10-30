@@ -505,3 +505,63 @@ perform_de_analysis <- function() {
      return(results_list)
 }
 
+# 相关性热图绘制
+library(pheatmap) 
+library(tibble)
+library(openxlsx)
+library(dplyr)
+Pro <- read.xlsx("蛋白定量列表.xlsx", colNames = TRUE)
+protein_matrix <- as.matrix(Pro[, -1])
+rownames(protein_matrix) <- Pro$Protein
+log2_data <- log2(protein_matrix)
+zscore_data <- t(scale(t(log2_data)))
+effective_patients <- c(5, 6, 9)
+sample_names <- colnames(zscore_data)
+patients <- as.numeric(gsub("[AB]", "", sample_names))
+conditions <- gsub("[0-9]", "", sample_names)
+effectiveness <- ifelse(patients %in% effective_patients, "Respond", "Non-respond")
+
+sample_info <- data.frame(
+  Sample = sample_names,
+  Patient = patients,
+  Condition = conditions,
+  Effectiveness = effectiveness
+)
+effective_idx <- which(effectiveness == "Respond")
+ineffective_idx <- which(effectiveness == "Non-respond")
+
+corr_all <- cor(zscore_data, method = "pearson")
+corr_eff <- cor(zscore_data[, effective_idx], method = "pearson")  
+corr_ineff <- cor(zscore_data[, ineffective_idx], method = "pearson")
+
+mean_all <- mean(corr_all[upper.tri(corr_all)])
+mean_eff <- mean(corr_eff[upper.tri(corr_eff)])
+mean_ineff <- mean(corr_ineff[upper.tri(corr_ineff)])
+
+col_annotation <- data.frame(
+  row.names = sample_names,
+  Effectiveness = factor(effectiveness),
+  Condition = factor(conditions)
+)
+
+ann_colors <- list(
+  Effectiveness = c("Respond" = "#F48892", "Non-respond" = "#91CAE8"),
+  Condition = c("A" = "#84BA42", "B" = "#D4562E")
+)
+# Heatmap 1: All samples
+pheatmap(corr_all,
+         color = colorRampPalette(c("#E63946", "white", "#2E86AB"))(100),
+         breaks = seq(-1, 1, length.out = 101),
+         annotation_col = col_annotation,
+         annotation_colors = ann_colors,
+         clustering_distance_rows = "correlation",
+         clustering_distance_cols = "correlation",
+         clustering_method = "average",
+         main = "Sample-to-Sample Correlations (All Samples)",
+         fontsize = 14, 
+         fontsize_row = 12, 
+         fontsize_col = 12,
+         cellwidth = 35,
+         cellheight = 35,
+         border_color = "grey90")
+
