@@ -565,3 +565,72 @@ pheatmap(corr_all,
          cellheight = 35,
          border_color = "grey90")
 
+# Heatmap 2: Grouped by treatment effectiveness
+sample_order <- c(sample_names[effective_idx], sample_names[ineffective_idx])
+corr_grouped <- corr_all[sample_order, sample_order]
+ann_grouped <- col_annotation[sample_order, , drop = FALSE]
+
+pheatmap(corr_grouped,
+         color = colorRampPalette(c("#E63946", "white", "#2E86AB"))(100),
+         breaks = seq(-1, 1, length.out = 101),
+         annotation_col = ann_grouped,
+         annotation_colors = ann_colors,
+         cluster_rows = FALSE,
+         cluster_cols = FALSE,
+         main = "Sample Correlations: Respond vs Non-respond Groups",
+         fontsize = 14,
+         cellwidth = 30,
+         cellheight = 30,
+         border_color = "grey90")
+
+# Protein analysis and biomarker identification
+protein_vars <- apply(zscore_data, 1, var, na.rm = TRUE)
+protein_mean_eff <- rowMeans(zscore_data[, effective_idx], na.rm = TRUE)
+protein_mean_ineff <- rowMeans(zscore_data[, ineffective_idx], na.rm = TRUE)
+protein_diff <- protein_mean_eff - protein_mean_ineff
+
+# Create biomarker data frame
+biomarkers <- data.frame(
+  Protein = names(protein_diff),
+  Mean_Effective = protein_mean_eff,
+  Mean_Ineffective = protein_mean_ineff,
+  Response_Difference = protein_diff,
+  Abs_Response_Diff = abs(protein_diff),
+  Variance = protein_vars
+) %>% arrange(desc(Abs_Response_Diff))
+
+top10 <- head(biomarkers, 10)
+for(i in 1:nrow(top10)) {
+  cat("  ", sprintf("%2d", i), ". ", top10$Protein[i], " (Response Diff: ", 
+      sprintf("%6.2f", top10$Response_Difference[i]), ")\n", sep="")
+}
+
+# Protein-protein correlation analysis
+n_top_proteins <- 150
+top_variable_proteins <- names(sort(protein_vars, decreasing = TRUE)[1:n_top_proteins])
+zscore_subset <- zscore_data[top_variable_proteins, ]
+
+prot_corr_eff <- cor(t(zscore_subset[, effective_idx]), method = "pearson")
+prot_corr_ineff <- cor(t(zscore_subset[, ineffective_idx]), method = "pearson")
+corr_difference <- prot_corr_eff - prot_corr_ineff
+
+# Create protein correlation heatmaps
+pheatmap(prot_corr_eff,
+         color = colorRampPalette(c("#E63946", "white", "#2E86AB"))(100),
+         breaks = seq(-1, 1, length.out = 101),
+         clustering_method = "average",
+         show_rownames = FALSE,
+         show_colnames = FALSE,
+         main = paste("Protein Network Correlations: Respond Group (", n_top_proteins, " proteins)"),
+         fontsize = 14,
+         border_color = NA)
+
+pheatmap(prot_corr_ineff,
+         color = colorRampPalette(c("#E63946", "white", "#2E86AB"))(100),
+         breaks = seq(-1, 1, length.out = 101),
+         clustering_method = "average",
+         show_rownames = FALSE,
+         show_colnames = FALSE,
+         main = paste("Protein Network Correlations: Non-respond Group (", n_top_proteins, " proteins)"),
+         fontsize = 14,
+         border_color = NA)
