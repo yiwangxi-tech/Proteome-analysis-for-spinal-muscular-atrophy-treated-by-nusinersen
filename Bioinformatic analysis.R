@@ -521,3 +521,175 @@ pheatmap(corr_difference,
          main = "Network Correlation Differences (Respond - Non-respond)",
          fontsize = 14,
          border_color = NA)
+
+# WGCNA分析
+setwd("D:/博士/参考文献/蛋白质组学/许婷婷-协和-20个脑脊液ddia-241029/R_output1013")
+library(WGCNA)
+library(pheatmap)
+library(openxlsx)
+options(stringsAsFactors = FALSE)
+allowWGCNAThreads(nThreads = 2)
+## 全局WGCNA
+Pro <- read.xlsx("蛋白定量列表.xlsx", colNames = TRUE)
+expr_matrix <- as.matrix(Pro[,-1])
+rownames(expr_matrix) <- Pro$Protein
+datExpr <- as.data.frame(t(expr_matrix))
+datExpr <- log2(datExpr)
+gsg <- goodSamplesGenes(datExpr, verbose = 3)
+datExpr <- datExpr[gsg$goodSamples, gsg$goodGenes]
+gene_vars <- apply(datExpr, 2, var, na.rm = TRUE)
+top_genes <- names(sort(gene_vars, decreasing = TRUE)[1:1000])
+datExpr <- datExpr[, top_genes]
+sample_names <- rownames(datExpr)
+sample_info <- data.frame(
+     sample_name = sample_names,
+     sample_number = as.numeric(gsub("([0-9]+)[AB]", "\\1", sample_names)),
+     treatment = gsub("[0-9]+([AB])", "\\1", sample_names)
+ )
+datTraits <- data.frame(
+     Treatment_Response = ifelse(sample_info$sample_number %in% c(5,6,9), 1, 0),
+     Treatment_Status = ifelse(sample_info$treatment == "A", 0, 1)
+ )
+rownames(datTraits) <- sample_names
+sft <- pickSoftThreshold(datExpr, powerVector = c(1:15), verbose = 5)
+softPower <- 6
+net <- blockwiseModules(datExpr, power = softPower, TOMType = "unsigned",
+                        minModuleSize = 10, reassignThreshold = 0,
+                        mergeCutHeight = 0.25, numericLabels = TRUE,
+                        pamRespectsDendro = FALSE, saveTOMs = FALSE,
+                        verbose = 3)
+moduleColors <- labels2colors(net$colors)
+MEs <- moduleEigengenes(datExpr, moduleColors)$eigengenes
+MEs <- orderMEs(MEs)
+moduleTraitCor <- cor(MEs, datTraits, use = "p")
+moduleTraitPvalue <- corPvalueStudent(moduleTraitCor, nrow(datExpr))
+final_results <- data.frame(
+     Module = rownames(moduleTraitCor),
+     Module_Size = as.numeric(table(moduleColors)[gsub("ME", "", rownames(moduleTraitCor))]),
+     Treatment_Response_Correlation = round(moduleTraitCor[, "Treatment_Response"], 4),
+     Treatment_Response_Pvalue = round(moduleTraitPvalue[, "Treatment_Response"], 4),
+     Treatment_Status_Correlation = round(moduleTraitCor[, "Treatment_Status"], 4),
+     Treatment_Status_Pvalue = round(moduleTraitPvalue[, "Treatment_Status"], 4)
+ )
+module_assignment <- data.frame(
+     Protein_ID = colnames(datExpr),
+     Module_Color = moduleColors,
+     stringsAsFactors = FALSE
+ )
+output_dir <- "D:/博士/参考文献/蛋白质组学/许婷婷-协和-20个脑脊液ddia-241029/R_output1013/WGCNA"
+write.xlsx(final_results, paste0(output_dir, "/WGCNA_Final_Results.xlsx"), rowNames = FALSE)
+write.xlsx(module_assignment, paste0(output_dir, "/Protein_Module_Assignment.xlsx"), rowNames = FALSE)
+## Respond及Non-respond WGNCA
+library(dplyr)
+library(stringr)
+library(tibble)
+Pro_matrix <- Pro
+Pro_matrix <- Pro %>% column_to_rownames(var = colnames(Pro)[1])
+
+respond_ids <- c("5", "6", "9")
+non_respond_ids <- c("1", "2", "3", "4", "7", "8", "10")
+filter_columns <- function(matrix, ids, time_suffix) {
+     target_cols <- paste0(ids, time_suffix)
+     selected_cols <- intersect(target_cols, colnames(matrix))
+     if (length(selected_cols) == 0) {
+         warning(paste("警告：未找到匹配", paste(ids, time_suffix, sep=""), "格式的列名。"))
+         return(NULL)
+     }
+     return(matrix[, selected_cols, drop = FALSE])
+ }
+Resp_Before <- filter_columns(Pro_matrix, respond_ids, "A")
+Resp_After <- filter_columns(Pro_matrix, respond_ids, "B")
+NonResp_Before <- filter_columns(Pro_matrix, non_respond_ids, "A")
+NonResp_After <- filter_columns(Pro_matrix, non_respond_ids, "B")
+if (!is.null(Resp_Before) && !is.null(Resp_After)) {
+     Respond_WGCNA_Matrix <- cbind(Resp_Before, Resp_After)
+     cat("Respond 组 WGCNA 矩阵样本数:", ncol(Respond_WGCNA_Matrix), "\n")
+ } else {
+     Respond_WGCNA_Matrix <- NULL
+ }
+if (!is.null(NonResp_Before) && !is.null(NonResp_After)) {
+     NonRespond_WGCNA_Matrix <- cbind(NonResp_Before, NonResp_After)
+     cat("\nNon-respond 组 WGCNA 矩阵样本数:", ncol(NonRespond_WGCNA_Matrix), "\n")
+ } else {
+     NonRespond_WGCNA_Matrix <- NULL
+ }
+
+Respond_WGCNA_Matrix <- log2(Respond_WGCNA_Matrix)
+NonRespond_WGCNA_Matrix <- log2(NonRespond_WGCNA_Matrix)
+Respond_WGCNA_Matrix <- t(Respond_WGCNA_Matrix)
+NonRespond_WGCNA_Matrix <- t(NonRespond_WGCNA_Matrix)
+
+sample_names_R <- rownames(Respond_WGCNA_Matrix)
+Time_Status_R <- ifelse(str_detect(sample_names_R, "A$"), 0, 1)
+Respond_datTraits <- data.frame(
+     Treatment_Status = Time_Status_R,
+     Treatment_Response = 1, 
+     row.names = sample_names_R
+ )
+
+sample_names_N <- rownames(NonRespond_WGCNA_Matrix)
+Time_Status_N <- ifelse(str_detect(sample_names_N, "A$"), 0, 1)
+NonRespond_datTraits <- data.frame(
+     Treatment_Status = Time_Status_N,
+     Treatment_Response = 0, 
+     row.names = sample_names_N
+ )
+
+gene_vars_R <- apply(Respond_WGCNA_Matrix, 2, var, na.rm = TRUE)
+top_genes_R <- names(sort(gene_vars_R, decreasing = TRUE)[1:1000])
+Respond_WGCNA_Matrix <- Respond_WGCNA_Matrix[, top_genes_R]
+sft_R <- pickSoftThreshold(Respond_WGCNA_Matrix, powerVector = c(1:30), verbose = 5)
+softPower_R <- 25
+net_R <- blockwiseModules(Respond_WGCNA_Matrix, power = softPower_R, TOMType = "unsigned",
+                          minModuleSize = 10, reassignThreshold = 0,
+                          mergeCutHeight = 0.25, numericLabels = TRUE,
+                          pamRespectsDendro = FALSE, saveTOMs = FALSE,
+                          verbose = 3)
+moduleColors_R <- labels2colors(net_R$colors)
+MEs_R <- moduleEigengenes(Respond_WGCNA_Matrix, moduleColors_R)$eigengenes
+MEs_R <- orderMEs(MEs_R)
+moduleTraitCor_R <- cor(MEs_R, Respond_datTraits, use = "p")
+moduleTraitPvalue_R <- corPvalueStudent(moduleTraitCor_R, nrow(Respond_WGCNA_Matrix))
+final_results_R <- data.frame(
+     Module = rownames(moduleTraitCor_R),
+     Module_Size = as.numeric(table(moduleColors_R)[gsub("ME", "", rownames(moduleTraitCor_R))]),
+     Treatment_Status_Correlation = round(moduleTraitCor_R[, "Treatment_Status"], 4),
+     Treatment_Status_Pvalue = round(moduleTraitPvalue_R[, "Treatment_Status"], 4)
+ )
+module_assignment_R <- data.frame(
+          Protein_ID = colnames(Respond_WGCNA_Matrix),
+          Module_Color = moduleColors_R,
+          stringsAsFactors = FALSE
+          )
+write.xlsx(final_results_R, paste0(output_dir, "/WGCNA_Final_Results_R_log2.xlsx"), rowNames = FALSE)
+write.xlsx(module_assignment_R, paste0(output_dir, "/Protein_Module_Assignment_R_log2.xlsx"), rowNames = FALSE)
+
+gene_vars_N <- apply(NonRespond_WGCNA_Matrix, 2, var, na.rm = TRUE)
+top_genes_N <- names(sort(gene_vars_N, decreasing = TRUE)[1:1000])
+NonRespond_WGCNA_Matrix <- NonRespond_WGCNA_Matrix[, top_genes_N]
+sft_NR <- pickSoftThreshold(NonRespond_WGCNA_Matrix, powerVector = c(1:30), verbose = 5)
+softPower_NR <- 9
+net_NR <- blockwiseModules(NonRespond_WGCNA_Matrix, power = softPower_NR, TOMType = "unsigned",
+                          minModuleSize = 10, reassignThreshold = 0,
+                          mergeCutHeight = 0.25, numericLabels = TRUE,
+                          pamRespectsDendro = FALSE, saveTOMs = FALSE,
+                          verbose = 3)
+moduleColors_NR <- labels2colors(net_NR$colors)
+MEs_NR <- moduleEigengenes(NonRespond_WGCNA_Matrix, moduleColors_NR)$eigengenes
+MEs_NR <- orderMEs(MEs_NR)
+moduleTraitCor_NR <- cor(MEs_NR, NonRespond_datTraits, use = "p")
+moduleTraitPvalue_NR <- corPvalueStudent(moduleTraitCor_NR, nrow(NonRespond_WGCNA_Matrix))
+final_results_NR <- data.frame(
+               Module = rownames(moduleTraitCor_NR),
+               Module_Size = as.numeric(table(moduleColors_NR)[gsub("ME", "", rownames(moduleTraitCor_NR))]),
+               Treatment_Status_Correlation = round(moduleTraitCor_NR[, "Treatment_Status"], 4),
+               Treatment_Status_Pvalue = round(moduleTraitPvalue_NR[, "Treatment_Status"], 4)
+ )
+module_assignment_NR <- data.frame(
+          Protein_ID = colnames(NonRespond_WGCNA_Matrix),
+          Module_Color = moduleColors_NR,
+          stringsAsFactors = FALSE
+          )
+write.xlsx(final_results_NR, paste0(output_dir, "/WGCNA_Final_Results_NR_log2.xlsx"), rowNames = FALSE)
+write.xlsx(module_assignment_NR, paste0(output_dir, "/Protein_Module_Assignment_NR_log2.xlsx"), rowNames = FALSE)
+
