@@ -588,6 +588,9 @@ MM <- cor(datExpr[, moduleGenes], MEs[, paste0("ME", module)], use="p")
 MM_pvalue <- corPvalueStudent(MM, nSamples = nrow(datExpr))
 GS <- cor(datExpr[, moduleGenes], trait, use="p")
 GS_pvalue <- corPvalueStudent(GS, nSamples = nrow(datExpr))
+plot(abs(MM), abs(GS),
+     xlab="Module Membership", ylab="Gene Significance",
+     main=paste("Module:", module))
 
 ## Respond及Non-respond WGNCA
 library(dplyr)
