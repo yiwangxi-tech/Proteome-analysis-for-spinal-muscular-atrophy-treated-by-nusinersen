@@ -603,7 +603,7 @@ hub_proteins <- hub_candidates[
     abs(hub_candidates$V1.x) >= MM_threshold & 
     abs(hub_candidates$V1.y) >= GS_threshold, 
 ]
-hub_proteins <- hub_proteins[order(abs(hub_proteins$MM), decreasing = TRUE), ]
+hub_proteins <- hub_proteins[order(abs(hub_proteins$V1.x), decreasing = TRUE), ]
 write.xlsx(hub_proteins, paste0(output_dir, "/Global_status_green_hub.xlsx"), rowNames = TRUE)
 
 ## Respond及Non-respond WGNCA
