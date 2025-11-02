@@ -587,11 +587,11 @@ trait <- datTraits[, trait_name]
 MM <- cor(datExpr[, moduleGenes], MEs[, paste0("ME", module)], use="p")
 MM_pvalue <- corPvalueStudent(MM, nSamples = nrow(datExpr))
 Global_status_green_MM <- cbind(MM, MM_pvalue)
-write.xlsx(Global_status_green_MM, paste0(output_dir, "/Global_status_green_MM.xlsx"), row.names = TRUE)
+write.xlsx(Global_status_green_MM, paste0(output_dir, "/Global_status_green_MM.xlsx"), rowNames = TRUE)
 GS <- cor(datExpr[, moduleGenes], trait, use="p")
 GS_pvalue <- corPvalueStudent(GS, nSamples = nrow(datExpr))
 Global_status_green_GS <- cbind(GS, GS_pvalue)
-write.xlsx(Global_status_green_GS, paste0(output_dir, "/Global_status_green_GS.xlsx"), row.names = TRUE)
+write.xlsx(Global_status_green_GS, paste0(output_dir, "/Global_status_green_GS.xlsx"), rowNames = TRUE)
 plot(abs(MM), abs(GS),
      xlab="Module Membership", ylab="Gene Significance",
      main=paste("Module:", module))
@@ -604,7 +604,7 @@ hub_proteins <- hub_candidates[
     abs(hub_candidates$V1.y) >= GS_threshold, 
 ]
 hub_proteins <- hub_proteins[order(abs(hub_proteins$MM), decreasing = TRUE), ]
-write.xlsx(hub_proteins, paste0(output_dir, "/Global_status_green_hub.xlsx"), row.names = TRUE)
+write.xlsx(hub_proteins, paste0(output_dir, "/Global_status_green_hub.xlsx"), rowNames = TRUE)
 
 ## Respond及Non-respond WGNCA
 library(dplyr)
