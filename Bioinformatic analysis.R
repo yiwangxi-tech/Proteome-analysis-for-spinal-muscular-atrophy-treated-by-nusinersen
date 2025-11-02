@@ -612,7 +612,16 @@ library(stringr)
 library(tibble)
 Pro_matrix <- Pro
 Pro_matrix <- Pro %>% column_to_rownames(var = colnames(Pro)[1])
-
+expr_matrix <- as.matrix(Pro_matrix[,-1])
+rownames(expr_matrix) <- Pro_matrix$Protein
+datExpr <- as.data.frame(t(expr_matrix))
+datExpr <- log2(datExpr)
+gsg <- goodSamplesGenes(datExpr, verbose = 3)
+datExpr <- datExpr[gsg$goodSamples, gsg$goodGenes]
+gene_vars <- apply(datExpr, 2, var, na.rm = TRUE)
+top_genes <- names(sort(gene_vars, decreasing = TRUE)[1:1000])
+datExpr <- datExpr[, top_genes]
+sample_names <- rownames(datExpr)
 respond_ids <- c("5", "6", "9")
 non_respond_ids <- c("1", "2", "3", "4", "7", "8", "10")
 filter_columns <- function(matrix, ids, time_suffix) {
@@ -624,10 +633,10 @@ filter_columns <- function(matrix, ids, time_suffix) {
      }
      return(matrix[, selected_cols, drop = FALSE])
  }
-Resp_Before <- filter_columns(Pro_matrix, respond_ids, "A")
-Resp_After <- filter_columns(Pro_matrix, respond_ids, "B")
-NonResp_Before <- filter_columns(Pro_matrix, non_respond_ids, "A")
-NonResp_After <- filter_columns(Pro_matrix, non_respond_ids, "B")
+Resp_Before <- filter_columns(datExpr, respond_ids, "A")
+Resp_After <- filter_columns(datExpr, respond_ids, "B")
+NonResp_Before <- filter_columns(datExpr, non_respond_ids, "A")
+NonResp_After <- filter_columns(datExpr, non_respond_ids, "B")
 if (!is.null(Resp_Before) && !is.null(Resp_After)) {
      Respond_WGCNA_Matrix <- cbind(Resp_Before, Resp_After)
      cat("Respond 组 WGCNA 矩阵样本数:", ncol(Respond_WGCNA_Matrix), "\n")
