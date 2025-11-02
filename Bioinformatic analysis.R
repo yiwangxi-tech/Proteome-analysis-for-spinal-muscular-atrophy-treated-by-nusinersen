@@ -579,6 +579,16 @@ module_assignment <- data.frame(
 output_dir <- "D:/博士/参考文献/蛋白质组学/许婷婷-协和-20个脑脊液ddia-241029/R_output1013/WGCNA"
 write.xlsx(final_results, paste0(output_dir, "/WGCNA_Final_Results.xlsx"), rowNames = FALSE)
 write.xlsx(module_assignment, paste0(output_dir, "/Protein_Module_Assignment.xlsx"), rowNames = FALSE)
+
+module <- "green"
+moduleGenes <- (moduleColors == module)
+trait_name <- "Treatment_status"  
+trait <- datTraits[, trait_name]
+MM <- cor(datExpr[, moduleGenes], MEs[, paste0("ME", module)], use="p")
+MM_pvalue <- corPvalueStudent(MM, nSamples = nrow(datExpr))
+GS <- cor(datExpr[, moduleGenes], trait, use="p")
+GS_pvalue <- corPvalueStudent(GS, nSamples = nrow(datExpr))
+
 ## Respond及Non-respond WGNCA
 library(dplyr)
 library(stringr)
