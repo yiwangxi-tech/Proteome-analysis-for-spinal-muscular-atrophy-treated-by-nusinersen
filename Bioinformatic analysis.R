@@ -681,7 +681,6 @@ library(dplyr)
 library(stringr)
 library(tibble)
 Pro_matrix <- Pro
-Pro_matrix <- Pro %>% column_to_rownames(var = colnames(Pro)[1])
 expr_matrix <- as.matrix(Pro_matrix[,-1])
 rownames(expr_matrix) <- Pro_matrix$Protein
 datExpr <- as.data.frame(t(expr_matrix))
@@ -703,29 +702,15 @@ filter_columns <- function(matrix, ids, time_suffix) {
      }
      return(matrix[, selected_cols, drop = FALSE])
  }
+datExpr <- t(datExpr)
 Resp_Before <- filter_columns(datExpr, respond_ids, "A")
 Resp_After <- filter_columns(datExpr, respond_ids, "B")
 NonResp_Before <- filter_columns(datExpr, non_respond_ids, "A")
 NonResp_After <- filter_columns(datExpr, non_respond_ids, "B")
-if (!is.null(Resp_Before) && !is.null(Resp_After)) {
-     Respond_WGCNA_Matrix <- cbind(Resp_Before, Resp_After)
-     cat("Respond 组 WGCNA 矩阵样本数:", ncol(Respond_WGCNA_Matrix), "\n")
- } else {
-     Respond_WGCNA_Matrix <- NULL
- }
-if (!is.null(NonResp_Before) && !is.null(NonResp_After)) {
-     NonRespond_WGCNA_Matrix <- cbind(NonResp_Before, NonResp_After)
-     cat("\nNon-respond 组 WGCNA 矩阵样本数:", ncol(NonRespond_WGCNA_Matrix), "\n")
- } else {
-     NonRespond_WGCNA_Matrix <- NULL
- }
+Respond_WGCNA_Matrix <- cbind(Resp_Before, Resp_After)
+NonRespond_WGCNA_Matrix <- cbind(NonResp_Before, NonResp_After)
 
-Respond_WGCNA_Matrix <- log2(Respond_WGCNA_Matrix)
-NonRespond_WGCNA_Matrix <- log2(NonRespond_WGCNA_Matrix)
-Respond_WGCNA_Matrix <- t(Respond_WGCNA_Matrix)
-NonRespond_WGCNA_Matrix <- t(NonRespond_WGCNA_Matrix)
-
-sample_names_R <- rownames(Respond_WGCNA_Matrix)
+sample_names_R <- colnames(Respond_WGCNA_Matrix)
 Time_Status_R <- ifelse(str_detect(sample_names_R, "A$"), 0, 1)
 Respond_datTraits <- data.frame(
      Treatment_Status = Time_Status_R,
@@ -733,7 +718,7 @@ Respond_datTraits <- data.frame(
      row.names = sample_names_R
  )
 
-sample_names_N <- rownames(NonRespond_WGCNA_Matrix)
+sample_names_N <- colnames(NonRespond_WGCNA_Matrix)
 Time_Status_N <- ifelse(str_detect(sample_names_N, "A$"), 0, 1)
 NonRespond_datTraits <- data.frame(
      Treatment_Status = Time_Status_N,
@@ -741,9 +726,6 @@ NonRespond_datTraits <- data.frame(
      row.names = sample_names_N
  )
 
-gene_vars_R <- apply(Respond_WGCNA_Matrix, 2, var, na.rm = TRUE)
-top_genes_R <- names(sort(gene_vars_R, decreasing = TRUE)[1:1000])
-Respond_WGCNA_Matrix <- Respond_WGCNA_Matrix[, top_genes_R]
 sft_R <- pickSoftThreshold(Respond_WGCNA_Matrix, powerVector = c(1:30), verbose = 5)
 softPower_R <- 25
 net_R <- blockwiseModules(Respond_WGCNA_Matrix, power = softPower_R, TOMType = "unsigned",
@@ -770,9 +752,6 @@ module_assignment_R <- data.frame(
 write.xlsx(final_results_R, paste0(output_dir, "/WGCNA_Final_Results_R_log2.xlsx"), rowNames = FALSE)
 write.xlsx(module_assignment_R, paste0(output_dir, "/Protein_Module_Assignment_R_log2.xlsx"), rowNames = FALSE)
 
-gene_vars_N <- apply(NonRespond_WGCNA_Matrix, 2, var, na.rm = TRUE)
-top_genes_N <- names(sort(gene_vars_N, decreasing = TRUE)[1:1000])
-NonRespond_WGCNA_Matrix <- NonRespond_WGCNA_Matrix[, top_genes_N]
 sft_NR <- pickSoftThreshold(NonRespond_WGCNA_Matrix, powerVector = c(1:30), verbose = 5)
 softPower_NR <- 9
 net_NR <- blockwiseModules(NonRespond_WGCNA_Matrix, power = softPower_NR, TOMType = "unsigned",
