@@ -1,7 +1,77 @@
+# 蛋白质表达情况
+setwd("D:/博士/参考文献/蛋白质组学/许婷婷-协和-20个脑脊液ddia-241029/R_output1013")
+library(openxlsx)
+Pro <- read.xlsx("蛋白定量列表.xlsx", colNames = TRUE)
+expr_matrix <- as.matrix(Pro[,-1])
+rownames(expr_matrix) <- Pro$Protein
+log_expr_matrix <- log2(expr_matrix)
+plot_data <- log_expr_matrix %>%
+  as.data.frame() %>%
+  rownames_to_column(var = "Protein") %>% 
+  pivot_longer(
+    cols = -Protein, 
+    names_to = "Sample", 
+    values_to = "Expression"
+  )
+plot_data <- plot_data %>%
+  mutate(
+    Patient_ID = parse_number(Sample),
+    Stage = ifelse(str_detect(Sample, "A"), "Pre-Treatment", "Post-Treatment"),
+    Stage = factor(Stage, levels = c("Pre-Treatment", "Post-Treatment")), 
+    Response_Status = case_when(
+      Patient_ID %in% c(5, 6, 9) ~ "Respond",
+      Patient_ID %in% c(1, 2, 3, 4, 7, 8, 10) ~ "Non-respond",
+      .default = "Other"
+    )
+  )
+response_colors <- c(
+  "Respond" = "#F48892", 
+  "Non-respond" = "#91CAE8" 
+)
+ordered_samples <- plot_data %>%
+  arrange(Stage, Patient_ID) %>%
+  pull(Sample) %>% 
+  unique()
+plot_data$Sample <- factor(plot_data$Sample, levels = ordered_samples)
+ggplot(plot_data, aes(x = Sample, y = Expression)) +
+  geom_boxplot(
+    aes(fill = Response_Status), 
+    outlier.shape = NA, 
+    lwd = 0.3
+  ) +
+  geom_point(
+    aes(color = Response_Status), 
+    position = position_jitter(width = 0.2), 
+    size = 0.5, 
+    alpha = 0.4
+  ) +
+  scale_fill_manual(values = response_colors) +
+  scale_color_manual(values = response_colors) +
+  geom_vline(xintercept = 10.5, linetype = "dashed", color = "black", size = 0.5) +
+  labs(
+    x = "Sample ID",
+    y = expression("Protein Expression(log2)"),
+    title = "Protein Expression",
+    fill = "治疗效果",
+    color = "治疗效果"
+  ) +
+  theme_bw() + 
+  theme(
+    axis.text = element_text(size = 12),
+    axis.title = element_text(size = 14),
+    axis.text.x = element_text(angle = 45, hjust = 1, size = 12), 
+    panel.grid.major.x = element_blank(), 
+    panel.grid.minor.x = element_blank(),
+    plot.title = element_text(hjust = 0.5),
+    legend.position = "bottom",
+    legend.title = element_text(size = 12),
+    legend.text = element_text(size = 12)
+  )
+
+# 连续变量及分类变量的Wlicoxon秩和检验及Fisher精确检验
 library(openxlsx)
 library(tidyverse)
 library(gtsummary)
-# 连续变量及分类变量的Wlicoxon秩和检验及Fisher精确检验
 Pat_info <- read.xlsx("Patient_info.xlsx", colNames = TRUE)
 Pat_info <- Pat_info %>%
   mutate(
