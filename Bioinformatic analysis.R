@@ -52,8 +52,8 @@ ggplot(plot_data, aes(x = Sample, y = Expression)) +
     x = "Sample ID",
     y = expression("Protein Expression(log2)"),
     title = "Protein Expression",
-    fill = "治疗效果",
-    color = "治疗效果"
+    fill = "Group",
+    color = "Group"
   ) +
   theme_bw() + 
   theme(
