@@ -689,7 +689,9 @@ Global_status_green_GS <- cbind(GS, GS_pvalue)
 write.xlsx(Global_status_green_GS, paste0(output_dir, "/Global_status_green_GS.xlsx"), rowNames = TRUE)
 plot(abs(MM), abs(GS),
      xlab="Module Membership", ylab="Gene Significance",
-     main=paste("Module:", module))
+     main = paste("Module:", module, "cor=0.87", "p=0.000145")))
+fit <- lm(abs(GS) ~ abs(MM))
+abline(fit, col = "red", lwd = 2)
 hub_candidates <- merge(MM, GS, by = "row.names")
 colnames(hub_candidates)[1] <- "Protein_ID"
 MM_threshold <- 0.7
