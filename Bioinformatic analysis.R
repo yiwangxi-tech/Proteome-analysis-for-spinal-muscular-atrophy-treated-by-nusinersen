@@ -677,7 +677,7 @@ pheatmap(
 
 module <- "green"
 moduleGenes <- (moduleColors == module)
-trait_name <- "Treatment_status"  
+trait_name <- "Treatment_Status"  
 trait <- datTraits[, trait_name]
 MM <- cor(datExpr[, moduleGenes], MEs[, paste0("ME", module)], use="p")
 MM_pvalue <- corPvalueStudent(MM, nSamples = nrow(datExpr))
